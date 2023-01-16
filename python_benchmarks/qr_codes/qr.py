@@ -18,6 +18,8 @@ from enum import Enum
 import numpy as np
 import cv2 as cv
 
+import zxingcpp
+
 
 class DetectorQR:
     TypeDetector = Enum('TypeDetector', 'opencv opencv_wechat')
@@ -188,18 +190,40 @@ def main():
     gl_count = 0
     gl_detect = 0
     gl_decode = 0
-    qr = create_instance_qr(DetectorQR.TypeDetector[algorithm], model_path)
+
+    algorithm = "opencv"
+    qr1 = create_instance_qr(DetectorQR.TypeDetector[algorithm], model_path)
+
+    algorithm = "opencv_wechat"
+    qr2 = create_instance_qr(DetectorQR.TypeDetector[algorithm], model_path)
+
+    all_zxing = 0
+
     for dir in list_dirs:
         imgs_path = find_images_path(dir)
         qr_count = 0
         qr_detect = 0
         qr_decode = 0
+        zxing_results = 0
         for img_path in imgs_path:
             label_path = img_path[:-3] + "txt"
             gold_corners = get_gold_corners(label_path)
             qr_count += gold_corners.shape[0]
             image = cv.imread(img_path, cv.IMREAD_IGNORE_ORIENTATION)
-            ret, corners = qr.detect(image)
+            ret1, corners1 = qr1.detect(image)
+            ret2, corners2 = qr2.detect(image)
+
+            zxing_results += len(zxingcpp.read_barcodes(image))
+
+            if len(corners1) > len(corners2):
+                ret = ret1
+                corners = corners1
+                qr = qr1
+            else:
+                ret = ret2
+                corners = corners2
+                qr = qr2
+
             img_name = img_path[:-4].replace('\\', '_')
             img_name = "img_" + img_name.replace('/', '_')
             fs.startWriteStruct(img_name, cv.FILE_NODE_MAP)
@@ -217,20 +241,23 @@ def main():
                 for one_gold_corners in gold_corners:
                     dist = get_norm_to_rotate_qr(one_gold_corners, corners, accuracy)
                     fs.write("dist_to_gold_corner_" + str(i), dist)
-                    if dist <= accuracy:
+                    if dist <= accuracy: 
                         qr_detect += 1
                     i += 1
             fs.endWriteStruct()
         category = (dir.replace('\\', '_')).replace('/', '_').split('_')[-1]
         detect_dict[category] = {"nums": qr_count, "detected": qr_detect, "detected_prop": qr_detect / max(1, qr_count)}
         decode_dict[category] = {"nums": qr_count, "decoded": qr_decode, "decoded_prop": qr_decode / max(1, qr_count)}
-        print(dir, qr_detect / max(1, qr_count), qr_decode / max(1, qr_count), qr_count)
+        print(dir, qr_detect / max(1, qr_count), qr_decode / max(1, qr_count), qr_count,
+              "zxing: ", zxing_results / max(1, qr_count))
         gl_count += qr_count
         gl_detect += qr_detect
         gl_decode += qr_decode
+        all_zxing += zxing_results
     print(gl_count)
     print(gl_detect)
     print(gl_detect / gl_count)
+    print(all_zxing / gl_count)
     print("decode", gl_decode / gl_count)
     detect_dict["total"] = {"nums": gl_count, "detected": gl_detect, "detected_prop": gl_detect / max(1, gl_count)}
 
