@@ -22,7 +22,7 @@ import zxingcpp
 
 
 class DetectorQR:
-    TypeDetector = Enum('TypeDetector', 'opencv opencv_wechat')
+    TypeDetector = Enum('TypeDetector', 'opencv opencv_wechat zxing')
 
     def __init__(self):
         self.detected_corners = np.array([])
@@ -73,11 +73,43 @@ class CvWechatDetector(DetectorQR):
         return True, self.decoded_info, self.detected_corners
 
 
+class ZXingDetector(DetectorQR):
+    def __init__(self):
+        super().__init__()
+        self.detector = zxingcpp
+
+    def detect(self, image):
+        results = self.detector.read_barcodes(image)
+        if len(results) == 0:
+            return False, np.array([])
+
+        corners = np.array([self._parse_zxing_position(res) for res in results])
+        self.decoded_info = [res.text for res in results]
+        self.detected_corners = corners
+        return True, corners
+
+    def decode(self, image):
+        if len(self.decoded_info) == 0:
+            return 0, [], None
+        return True, self.decoded_info, self.detected_corners
+
+    def _parse_zxing_position(self, zxing_result):
+        pos = zxing_result.position
+        corners = [[pos.top_left.x, pos.top_left.y],
+                   [pos.top_right.x, pos.top_right.y],
+                   [pos.bottom_right.x, pos.bottom_right.y],
+                   [pos.bottom_left.x, pos.bottom_left.y]]
+
+        return corners
+
+
 def create_instance_qr(type_detector=DetectorQR.TypeDetector.opencv, path_to_model="./"):
     if type_detector is DetectorQR.TypeDetector.opencv:
         return CvObjDetector()
     if type_detector is DetectorQR.TypeDetector.opencv_wechat:
         return CvWechatDetector(path_to_model)
+    if type_detector is DetectorQR.TypeDetector.zxing:
+        return ZXingDetector()
     raise TypeError("this type_detector isn't supported")
 
 
@@ -197,7 +229,8 @@ def main():
     algorithm = "opencv_wechat"
     qr2 = create_instance_qr(DetectorQR.TypeDetector[algorithm], model_path)
 
-    all_zxing = 0
+    algorithm = "zxing"
+    qr_zxing = create_instance_qr(DetectorQR.TypeDetector[algorithm], model_path)
 
     for dir in list_dirs:
         imgs_path = find_images_path(dir)
@@ -212,17 +245,20 @@ def main():
             image = cv.imread(img_path, cv.IMREAD_IGNORE_ORIENTATION)
             ret1, corners1 = qr1.detect(image)
             ret2, corners2 = qr2.detect(image)
+            ret_zxing, corners_zxing = qr_zxing.detect(image)
 
-            zxing_results += len(zxingcpp.read_barcodes(image))
-
-            if len(corners1) > len(corners2):
+            if len(corners1) > len(corners2) and len(corners1) > len(corners_zxing):
                 ret = ret1
                 corners = corners1
                 qr = qr1
-            else:
+            elif len(corners2) > len(corners_zxing) and len(corners2) > len(corners_zxing):
                 ret = ret2
                 corners = corners2
                 qr = qr2
+            else:
+                ret = ret_zxing
+                corners = corners_zxing
+                qr = qr_zxing
 
             img_name = img_path[:-4].replace('\\', '_')
             img_name = "img_" + img_name.replace('/', '_')
@@ -248,16 +284,13 @@ def main():
         category = (dir.replace('\\', '_')).replace('/', '_').split('_')[-1]
         detect_dict[category] = {"nums": qr_count, "detected": qr_detect, "detected_prop": qr_detect / max(1, qr_count)}
         decode_dict[category] = {"nums": qr_count, "decoded": qr_decode, "decoded_prop": qr_decode / max(1, qr_count)}
-        print(dir, qr_detect / max(1, qr_count), qr_decode / max(1, qr_count), qr_count,
-              "zxing: ", zxing_results / max(1, qr_count))
+        print(dir, qr_detect / max(1, qr_count), qr_decode / max(1, qr_count), qr_count)
         gl_count += qr_count
         gl_detect += qr_detect
         gl_decode += qr_decode
-        all_zxing += zxing_results
     print(gl_count)
     print(gl_detect)
     print(gl_detect / gl_count)
-    print(all_zxing / gl_count)
     print("decode", gl_decode / gl_count)
     detect_dict["total"] = {"nums": gl_count, "detected": gl_detect, "detected_prop": gl_detect / max(1, gl_count)}
 
