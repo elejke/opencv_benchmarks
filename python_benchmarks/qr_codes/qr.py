@@ -198,7 +198,7 @@ def main():
     parser.add_argument("-a", "--accuracy", help="input accuracy", default="20", action="store", dest="accuracy",
                         type=int)
     parser.add_argument("-alg", "--algorithm", help="QR detect algorithm", default="opencv", action="store",
-                        dest="algorithm", choices=['opencv', 'opencv_wechat'], type=str)
+                        dest="algorithm", choices=['opencv', 'opencv_wechat', 'zxing'], type=str)
     parser.add_argument("--metric", help="Metric for distance between QR corners", default="l_inf", action="store",
                         dest="metric", choices=['l1', 'l_inf'], type=str)
 
@@ -223,14 +223,14 @@ def main():
     gl_detect = 0
     gl_decode = 0
 
-    algorithm = "opencv"
-    qr1 = create_instance_qr(DetectorQR.TypeDetector[algorithm], model_path)
+    # algorithm = "opencv"
+    qr = create_instance_qr(DetectorQR.TypeDetector[algorithm], model_path)
 
-    algorithm = "opencv_wechat"
-    qr2 = create_instance_qr(DetectorQR.TypeDetector[algorithm], model_path)
+    # algorithm = "opencv_wechat"
+    # qr2 = create_instance_qr(DetectorQR.TypeDetector[algorithm], model_path)
 
-    algorithm = "zxing"
-    qr_zxing = create_instance_qr(DetectorQR.TypeDetector[algorithm], model_path)
+    # algorithm = "zxing"
+    # qr_zxing = create_instance_qr(DetectorQR.TypeDetector[algorithm], model_path)
 
     for dir in list_dirs:
         imgs_path = find_images_path(dir)
@@ -243,22 +243,24 @@ def main():
             gold_corners = get_gold_corners(label_path)
             qr_count += gold_corners.shape[0]
             image = cv.imread(img_path, cv.IMREAD_IGNORE_ORIENTATION)
-            ret1, corners1 = qr1.detect(image)
-            ret2, corners2 = qr2.detect(image)
-            ret_zxing, corners_zxing = qr_zxing.detect(image)
+            # ret1, corners1 = qr1.detect(image)
+            # ret2, corners2 = qr2.detect(image)
+            # ret_zxing, corners_zxing = qr_zxing.detect(image)
 
-            if len(corners1) > len(corners2) and len(corners1) > len(corners_zxing):
-                ret = ret1
-                corners = corners1
-                qr = qr1
-            elif len(corners2) > len(corners_zxing) and len(corners2) > len(corners_zxing):
-                ret = ret2
-                corners = corners2
-                qr = qr2
-            else:
-                ret = ret_zxing
-                corners = corners_zxing
-                qr = qr_zxing
+            # if len(corners1) > len(corners2) and len(corners1) > len(corners_zxing):
+            #     ret = ret1
+            #     corners = corners1
+            #     qr = qr1
+            # elif len(corners2) > len(corners_zxing):
+            #     ret = ret2
+            #     corners = corners2
+            #     qr = qr2
+            # else:
+            #     ret = ret_zxing
+            #     corners = corners_zxing
+            #     qr = qr_zxing
+
+            ret, corners = qr.detect(image)
 
             img_name = img_path[:-4].replace('\\', '_')
             img_name = "img_" + img_name.replace('/', '_')

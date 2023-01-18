@@ -14,3 +14,8 @@ To run OpenCV and WeChat algorithm:
 [build OpenCV with OpenCV contrib]((https://docs.opencv.org/4.x/db/d05/tutorial_config_reference.html)).
 3. [Download files](https://github.com/WeChatCV/opencv_3rdparty) detect.prototxt, detect.caffemodel, sr.prototxt, sr.caffemodel and set path_to_model.
 4. Use "python qr.py -alg opencv_wechat -o out.yaml -p path_folder/qrcodes/detection" to run benchmark.
+
+To run with ZXing algorithm:
+1. Follow the steps from the previous part.
+2. Install [zxing](https://github.com/zxing-cpp/zxing-cpp/tree/master/wrappers/python).
+4. Use "python qr.py -alg zxing -o out.yaml -p path_folder/qrcodes/detection" to run benchmark.
