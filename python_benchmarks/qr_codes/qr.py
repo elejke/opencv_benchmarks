@@ -19,10 +19,11 @@ import numpy as np
 import cv2 as cv
 
 import zxingcpp
+from pyzbar.pyzbar import decode as zbar_detector
 
 
 class DetectorQR:
-    TypeDetector = Enum('TypeDetector', 'opencv opencv_wechat zxing')
+    TypeDetector = Enum('TypeDetector', 'opencv opencv_wechat zxing zbar')
 
     def __init__(self):
         self.detected_corners = np.array([])
@@ -93,12 +94,46 @@ class ZXingDetector(DetectorQR):
             return 0, [], None
         return True, self.decoded_info, self.detected_corners
 
-    def _parse_zxing_position(self, zxing_result):
+    @staticmethod
+    def _parse_zxing_position(zxing_result):
         pos = zxing_result.position
         corners = [[pos.top_left.x, pos.top_left.y],
                    [pos.top_right.x, pos.top_right.y],
                    [pos.bottom_right.x, pos.bottom_right.y],
                    [pos.bottom_left.x, pos.bottom_left.y]]
+
+        return corners
+
+
+class ZBarDetector(DetectorQR):
+    def __init__(self):
+        super().__init__()
+        self.detector = zbar_detector
+
+    def detect(self, image):
+        results = self.detector(image)
+        results = list(filter(lambda res: res.type == "QRCODE", results))
+
+        if len(results) == 0:
+            return False, np.array([])
+
+        corners = np.array([self._parse_zbar_position(res) for res in results])
+        self.decoded_info = [str(res.data) for res in results]
+        self.detected_corners = corners
+        return True, corners
+
+    def decode(self, image):
+        if len(self.decoded_info) == 0:
+            return 0, [], None
+        return True, self.decoded_info, self.detected_corners
+
+    @staticmethod
+    def _parse_zbar_position(zbar_result):
+        pos = zbar_result.polygon
+        corners = [[pos[0].x, pos[0].y],
+                   [pos[1].x, pos[1].y],
+                   [pos[2].x, pos[2].y],
+                   [pos[3].x, pos[3].y]]
 
         return corners
 
@@ -110,6 +145,8 @@ def create_instance_qr(type_detector=DetectorQR.TypeDetector.opencv, path_to_mod
         return CvWechatDetector(path_to_model)
     if type_detector is DetectorQR.TypeDetector.zxing:
         return ZXingDetector()
+    if type_detector is DetectorQR.TypeDetector.zbar:
+        return ZBarDetector()
     raise TypeError("this type_detector isn't supported")
 
 
@@ -198,7 +235,7 @@ def main():
     parser.add_argument("-a", "--accuracy", help="input accuracy", default="20", action="store", dest="accuracy",
                         type=int)
     parser.add_argument("-alg", "--algorithm", help="QR detect algorithm", default="opencv", action="store",
-                        dest="algorithm", choices=['opencv', 'opencv_wechat', 'zxing'], type=str)
+                        dest="algorithm", choices=['opencv', 'opencv_wechat', 'zxing', 'zbar'], type=str)
     parser.add_argument("--metric", help="Metric for distance between QR corners", default="l_inf", action="store",
                         dest="metric", choices=['l1', 'l_inf'], type=str)
 
@@ -237,7 +274,7 @@ def main():
         qr_count = 0
         qr_detect = 0
         qr_decode = 0
-        zxing_results = 0
+
         for img_path in imgs_path:
             label_path = img_path[:-3] + "txt"
             gold_corners = get_gold_corners(label_path)
@@ -279,7 +316,7 @@ def main():
                 for one_gold_corners in gold_corners:
                     dist = get_norm_to_rotate_qr(one_gold_corners, corners, accuracy)
                     fs.write("dist_to_gold_corner_" + str(i), dist)
-                    if dist <= accuracy: 
+                    if dist <= accuracy:
                         qr_detect += 1
                     i += 1
             fs.endWriteStruct()
