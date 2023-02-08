@@ -18,9 +18,14 @@ To run OpenCV and WeChat algorithm:
 To run with ZXing algorithm:
 1. Follow the steps from the first part.
 2. Install [zxing](https://github.com/zxing-cpp/zxing-cpp/tree/master/wrappers/python).
-4. Use "python qr.py -alg zxing -o out.yaml -p path_folder/qrcodes/detection" to run benchmark.
+3. Use "python qr.py -alg zxing -o out.yaml -p path_folder/qrcodes/detection" to run benchmark.
 
 To run with ZBar algorithm:
 1. Follow the steps from the first part.
 2. Install [pyzbar](https://github.com/NaturalHistoryMuseum/pyzbar)
 3. Use "python qr.py -alg zbar -o out.yaml -p path_folder/qrcodes/detection" to run benchmark.
+
+To run with BoofCV algorithm:
+1. Follow the steps from the first part.
+2. Install [pyboof](https://github.com/lessthanoptimal/PyBoof/tree/e0f1174bfa080fae1fde44f02c54e500104f69c5)
+3. Use "python qr.py -alg boofcv -o out.yaml -p path_folder/qrcodes/detection" to run benchmark.

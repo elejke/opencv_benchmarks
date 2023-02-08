@@ -19,11 +19,12 @@ import numpy as np
 import cv2 as cv
 
 import zxingcpp
+import pyboof as pb
 from pyzbar.pyzbar import decode as zbar_detector
 
 
 class DetectorQR:
-    TypeDetector = Enum('TypeDetector', 'opencv opencv_wechat zxing zbar')
+    TypeDetector = Enum('TypeDetector', 'opencv opencv_wechat zxing zbar boofcv')
 
     def __init__(self):
         self.detected_corners = np.array([])
@@ -74,6 +75,28 @@ class CvWechatDetector(DetectorQR):
         return True, self.decoded_info, self.detected_corners
 
 
+class BoofCVDetector(DetectorQR):
+    def __init__(self, path_to_model="./"):
+        super().__init__()
+        self.detector = pb.FactoryFiducial(np.uint8).qrcode()
+
+    def detect(self, image):
+        image = pb.image.ndarray_to_boof(image)
+        self.detector.detect(image)
+        if len(self.detector.detections) == 0:
+            return False, np.array([])
+
+        corners = np.array([det.bounds.convert_tuple() for det in self.detector.detections]).reshape(-1, 4, 2)
+        self.decoded_info = [det.message for det in self.detector.detections]
+        self.detected_corners = corners
+        return True, corners
+
+    def decode(self, image):
+        if len(self.decoded_info) == 0:
+            return 0, [], None
+        return True, self.decoded_info, self.detected_corners
+
+
 class ZXingDetector(DetectorQR):
     def __init__(self):
         super().__init__()
@@ -81,6 +104,8 @@ class ZXingDetector(DetectorQR):
 
     def detect(self, image):
         results = self.detector.read_barcodes(image)
+        results = list(filter(lambda res: res.format.name == "QRCode", results))
+        
         if len(results) == 0:
             return False, np.array([])
 
@@ -147,6 +172,8 @@ def create_instance_qr(type_detector=DetectorQR.TypeDetector.opencv, path_to_mod
         return ZXingDetector()
     if type_detector is DetectorQR.TypeDetector.zbar:
         return ZBarDetector()
+    if type_detector is DetectorQR.TypeDetector.boofcv:
+        return BoofCVDetector()
     raise TypeError("this type_detector isn't supported")
 
 
@@ -235,7 +262,7 @@ def main():
     parser.add_argument("-a", "--accuracy", help="input accuracy", default="20", action="store", dest="accuracy",
                         type=int)
     parser.add_argument("-alg", "--algorithm", help="QR detect algorithm", default="opencv", action="store",
-                        dest="algorithm", choices=['opencv', 'opencv_wechat', 'zxing', 'zbar'], type=str)
+                        dest="algorithm", choices=['opencv', 'opencv_wechat', 'zxing', 'zbar', 'boofcv'], type=str)
     parser.add_argument("--metric", help="Metric for distance between QR corners", default="l_inf", action="store",
                         dest="metric", choices=['l1', 'l_inf'], type=str)
 
